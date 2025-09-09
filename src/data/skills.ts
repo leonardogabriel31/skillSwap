@@ -1,4 +1,6 @@
-export const skills = [
+import type { Post } from "@/types/post"
+
+export const skills: Post[] = [
     {
         id: 1,
         name: "Leonardo M.",
@@ -9,6 +11,14 @@ export const skills = [
         username: "leonardo",
         offers: ["Mentoría en frontend", "Revisión de código", "Deploy en Vercel"],
         wants: ["Aprender Backend con Node.js", "Mejorar en DevOps"],
+        content: "Acabo de terminar un proyecto en Next.js desplegado en Vercel 🚀. Quien quiere feedback o colaborar??",
+        reactions: { likes: 0, hearts: 2 },
+        comments: [
+            { id: 1, author: "Maria G.", text: "Qué brutal!! 🚀"},
+            { id: 2, author: "Carlos P.", text: "Muestrame el repo 👀"},
+        ],
+        userReaction: null,
+        createAt: "2025-09-08T14:30:00.000Z",
     },
     {
         id: 2,
@@ -20,6 +30,13 @@ export const skills = [
         username: "maria",
         offers: ["Diseño de interfaz", "UX Research"],
         wants: ["Aprender React", "Introducción a TypeScript"],
+        content: "Estoy trabajando en un rediseño en Figma y busco alguien que me enseñe React a cambio 💡",
+        reactions: { likes: 0, hearts: 1 },
+        comments: [
+            { id: 1, author: "Leonardo M.", text: "Yo te enseño React sin problema 😎"},
+        ],
+        userReaction: null,
+        createAt: "2025-09-07T14:30:00.000Z",
     },
     {
         id: 3,
@@ -31,5 +48,12 @@ export const skills = [
         username: "carlos",
         offers: ["Mentoría en SEO", "SEM", "Marketing Digital"],
         wants: ["Diseño de interfaz", "Aprender Figma y diseño gràfico"],
+        content: "Estoy probando nuevas estrategias de SEO en proyectos reales. Quien quiere aprender conmigo??",
+        reactions: { likes: 1, hearts: 1 },
+        comments: [
+            { id: 1, author: "Leonardo M.", text: "Interesante, te dejé un mensaje al privado 👍🏽"},
+        ],
+        userReaction: null,
+        createAt: "2025-09-06T14:30:00.000Z",
     },
 ]
