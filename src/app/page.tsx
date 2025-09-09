@@ -7,7 +7,8 @@ import { useState } from "react";
 import { Post } from "@/types/post"
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale"
-import EmojiPicker from "emoji-picker-react";
+import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
+import Image from "next/image";
 
 
 const cardVariants: Variants = {
@@ -48,7 +49,7 @@ export default function Home() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
+  // const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
 
   const handleInput: React.FormEventHandler<HTMLDivElement> = (e) => {
     const text = e.currentTarget.textContent ?? "";
@@ -231,7 +232,7 @@ export default function Home() {
     reader.readAsDataURL(file);
   };
 
-  const onEmojiClick = (emojiObject: any) => {
+  const onEmojiClick = (emojiObject: EmojiClickData) => {
     setNewPostText((prev) => prev + emojiObject.emoji);
   };
 
@@ -373,10 +374,12 @@ export default function Home() {
               </div>
 
               {person.imagePost && (
-                <img 
+                <Image
+                  width={500}
+                  height={500} 
                   src={person.imagePost} 
                   alt="post"
-                  className="rounded-xl mb-3 max-h-80 object-cover" 
+                  className="rounded-xl mb-3 max-h-500 object-cover" 
                 />
               )}
 
@@ -504,7 +507,7 @@ export default function Home() {
               <h2 className="text-xl font-semibold mb-3">Bienvenido a SkillSwap!! 🚀</h2>
               <p className="text-gray-700">
                 Explora usuarios, descubre habilidades y conecta con talento.
-                Puedes hacer clic en "Ver perfil" para conocer mas sobre cada persona.
+                Puedes hacer clic en &quot;Ver perfil&quot; para conocer mas sobre cada persona.
               </p>
             </motion.div>
           </motion.div>

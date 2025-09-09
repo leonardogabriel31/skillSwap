@@ -78,7 +78,7 @@ export default function UserCard({ user }: { user: User }) {
 
                     <button
                         onClick={() => setActiveTab("wants")}
-                        aria-selected={activeTab === "wants"}
+                        aria-pressed={activeTab === "wants"}
                         className={`pb-1 transition-colors ${
                             activeTab === "wants"
                                 ? "border-b-2 border-blue-600 text-blue-600 font-medium"
