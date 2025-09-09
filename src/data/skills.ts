@@ -19,6 +19,7 @@ export const skills: Post[] = [
         ],
         userReaction: null,
         createAt: "2025-09-08T14:30:00.000Z",
+        imagePost: "/images/Image-prueba.png",
     },
     {
         id: 2,
@@ -37,6 +38,7 @@ export const skills: Post[] = [
         ],
         userReaction: null,
         createAt: "2025-09-07T14:30:00.000Z",
+        imagePost: null,
     },
     {
         id: 3,
@@ -55,5 +57,6 @@ export const skills: Post[] = [
         ],
         userReaction: null,
         createAt: "2025-09-06T14:30:00.000Z",
+        imagePost: null,
     },
 ]

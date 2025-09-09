@@ -1,5 +1,5 @@
 "use client"
-import { skills as initialSkills, skills } from "@/data/skills";
+import { skills as initialSkills } from "@/data/skills";
 import Link from "next/link";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import { X, Heart, ThumbsUp } from "lucide-react";
@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Post } from "@/types/post"
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale"
+import EmojiPicker from "emoji-picker-react";
 
 
 const cardVariants: Variants = {
@@ -41,8 +42,38 @@ const modalVariants: Variants = {
 export default function Home() {
   const [showModal, setShowModal] = useState(true);
   const [posts, setPosts] = useState<Post[]>(initialSkills);
-  const [commentTexts, setCommentTexts] = useState<{ [key: number]: string }>({})
-  const [newPostText, setNewPostText] = useState("")
+  const [commentTexts, setCommentTexts] = useState<{ [key: number]: string }>({});
+  const [newPostText, setNewPostText] = useState("");
+  const [newPostImage, setNewPostImage] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
+
+  const handleInput: React.FormEventHandler<HTMLDivElement> = (e) => {
+    const text = e.currentTarget.textContent ?? "";
+    setNewPostText(text);
+
+    const words = text.split(/\s+/);
+    const lastWord = words[words.length - 1] ?? "";
+
+    if (lastWord.startsWith("@")) {
+      const query = lastWord.slice(1).toLowerCase();
+      const matchedUsers = initialSkills
+        .map((u) => u.username)
+        .filter((u) => u.toLowerCase().startsWith(query));
+      setSuggestions(matchedUsers);
+      setShowSuggestions(true);
+    } else if (lastWord.startsWith("#")) {
+      const query = lastWord.slice(1).toLowerCase();
+      const hashtags = ["frontend", "backend", "fullstack", "nextjs", "dev"];
+      const matchedTags = hashtags.filter((tag) => tag.startsWith(query));
+      setSuggestions(matchedTags.map((t) => `#${t}`));
+      setShowSuggestions(true);
+    } else {
+      setShowSuggestions(false);
+    }
+  };
 
   const handleAddPost = () => {
     if (!newPostText.trim()) return;
@@ -62,10 +93,16 @@ export default function Home() {
       comments: [],
       userReaction: null,
       createAt: new Date().toISOString(),
+      imagePost: newPostImage,
     };
 
     setPosts([newPost, ...posts]);
     setNewPostText("");
+    setNewPostImage(null);
+    setShowEmojiPicker(false);
+
+    const editableDiv = document.getElementById("new-post-editor");
+    if (editableDiv) editableDiv.textContent = "";
   }
 
   const handleReaction = (id: number, type: "likes" | "hearts") => {
@@ -131,6 +168,73 @@ export default function Home() {
     );
   };
 
+  const handleSuggestionClick = (suggestion: string) => {
+    const editor = document.getElementById("new-post-editor");
+    if (!editor) return;
+    
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return;
+    
+    const range = selection.getRangeAt(0);
+    
+    const textNode = range.startContainer;
+    if (textNode.nodeType === Node.TEXT_NODE) {
+      const text = textNode.textContent || "";
+      const before = text.slice(0, range.startOffset).replace(/[@#]\w*$/, "");
+      const after = text.slice(range.startOffset);
+      textNode.textContent = before + after;
+      range.setStart(textNode, before.length);
+      range.setEnd(textNode, before.length);
+
+    }
+    const span = document.createElement("span");
+    span.textContent = suggestion.startsWith("#") ? `${suggestion}` : `@${suggestion}`;
+    span.className = suggestion.startsWith("#")
+    ? "text-purple-500 font-medium"
+    : "text-blue-500 font-medium"
+    
+    range.insertNode(span);
+  
+    range.setStartAfter(span);
+    range.setEndAfter(span);
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    setNewPostText(editor.innerText);
+    setShowSuggestions(false)
+  }
+
+  // const handleFocus = () => {
+  //   const editor = document.getElementById("new-post-editor");
+  //   if (!editor) return;
+    
+  //   if (editor.textContent?.trim() === "") {
+  //     const selection = window.getSelection();
+  //     if (!selection) return;
+
+  //     const range = document.createRange();
+  //     range.setStart(editor, 0);
+  //     range.collapse(true);
+  //     selection.removeAllRanges();
+  //     selection.addRange(range);
+  //   }
+  // };
+
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setNewPostImage(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const onEmojiClick = (emojiObject: any) => {
+    setNewPostText((prev) => prev + emojiObject.emoji);
+  };
+
   return (
     <main className="px-4 sm:px-6 lg:px-12 py-8 flex flex-col items-center gap-6">
       <motion.h1 
@@ -142,20 +246,105 @@ export default function Home() {
         SkillSwap
       </motion.h1>
 
-      <div className="w-full max-w-3xl flex flex-col gap-2 mb-6">
-        <textarea 
-          value={newPostText}
-          onChange={(e) => setNewPostText(e.target.value)}
-          placeholder="Qué estás haciendo??"
-          className="border rounded-lg p-3 w-full text-sm"
-        />
-        <button
-          onClick={handleAddPost}
-          className="self-end bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+      <AnimatePresence>
+        <motion.div 
+          key="newPostInput"
+          variants={newPostVariant}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          className="bg-white shadow-md rounded-2xl p-4 w-full max-w-3xl flex flex-col gap-3"
         >
-          Publicar
-        </button>
-      </div>
+          <div className="relative border rounded-lg py-2 px-4 w-full text-sm min-h-[80px] outline-none whitespace-pre-wrap flex items-start">
+            {newPostText === "" && (
+              <span className="text-gray-400 pointer-events-none select-none">
+                Qué estás haciendo??
+              </span>
+            )}
+            <div
+              id="new-post-editor" 
+              contentEditable
+              suppressContentEditableWarning
+              onInput={handleInput}
+              // onFocus={handleFocus}
+              data-placeholder="Qué estás haciendo??"
+              className="flex-1 outline-none"
+            />
+          </div>
+
+
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="bg-white border rounded-lg shadow-md mt-1 p-2 w-60 max-h-40 overflow-y-auto">
+              {suggestions.map((s, idx) => (
+                <div
+                  key={idx}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handleSuggestionClick(s)
+                  }}
+                  className="px-2 py-1 cursor-pointer hover:bg-gray-100 rounded-md"
+                >
+                  {s.startsWith("#") ? (
+                    <span className="text-purple-500">{s}</span>
+                  ):(
+                    <span className="text-blue-500">@{s}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {newPostImage && (
+            <motion.img
+              src={newPostImage}
+              alt="preview"
+              className="rounded-lg mt-2 max-h-60 object-cover"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            />
+          )}
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowEmojiPicker((prev) => !prev)}
+                className="text-xl hover:bg-gray-100 p-2 rounded-full transition"
+              >
+                😊
+              </button>
+
+              <label className="cursor-pointer hover:bg-gray-100 p-2 rounded-full transition">
+                📷
+                <input 
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageUpload}                
+                />
+              </label>
+            </div>
+            <button
+              onClick={handleAddPost}
+              className="bg-blue-500 text-white px-4 py-2 rounded-xl hover:bg-blue-600 transition"
+            >
+              Publicar
+            </button>
+          </div>
+          
+          <AnimatePresence>
+            {showEmojiPicker && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                className="mt-2"
+              >
+                <EmojiPicker onEmojiClick={onEmojiClick} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      </AnimatePresence>
 
       <div className="flex flex-col items-center gap-6 w-full">
         {posts
@@ -183,6 +372,14 @@ export default function Home() {
                 </div>
               </div>
 
+              {person.imagePost && (
+                <img 
+                  src={person.imagePost} 
+                  alt="post"
+                  className="rounded-xl mb-3 max-h-80 object-cover" 
+                />
+              )}
+
               <div className="flex flex-wrap gap-2 mb-3">
                 {person.skills.map((s, idx) => (
                   <span 
@@ -195,7 +392,23 @@ export default function Home() {
               </div>
 
               <p className="text-gray-700 text-sm sm:text-base mb-4">
-                {person.content}
+                {person.content.split(" ").map((word, idx) => {
+                  if (word.startsWith("@")) {
+                    return (
+                      <span key={idx} className="text-blue-500 font-medium cursor-pointer">
+                        {word}{" "}
+                      </span>
+                    )
+                  }
+                  if (word.startsWith("#")) {
+                    return (
+                      <span key={idx} className="text-blue-500 font-medium cursor-pointer">
+                        {word}{" "}
+                      </span>
+                    );
+                  }
+                  return word + " "
+                })}
               </p>
 
               <div className="flex items-center gap-6 mt-2">

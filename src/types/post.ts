@@ -24,4 +24,5 @@ export interface Post {
     comments: Comment[];
     userReaction: "likes" | "hearts" | null;
     createAt: string;
+    imagePost?: string | null;
 }
