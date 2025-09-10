@@ -285,12 +285,6 @@ export default function Home() {
       <AnimatePresence>
         <motion.div 
           key="newPostInput"
-          // onFocus={() => setEditorFocused(true)}
-          // onBlur={(e) => {
-          //   if (!newPostText.trim() && !newPostImage) {
-          //     setEditorFocused(false);
-          //   }
-          // }}
           variants={newPostVariant}
           initial="hidden"
           animate="visible"
@@ -366,8 +360,6 @@ export default function Home() {
                   className="flex items-center gap-3"
                 >
                   <button
-                    // onMouseDown={(e) => e.preventDefault()}
-                    // onClick={() => setShowEmojiPicker((prev) => !prev)}
                     onClick={handleToggleEmojiPicker}
                     className="text-xl hover:bg-gray-100 p-2 rounded-full transition"
                   >
@@ -380,7 +372,6 @@ export default function Home() {
                       type="file"
                       accept="image/*"
                       className="hidden"
-                      // onMouseDown={(e) => e.preventDefault()}
                       onChange={handleImageUpload}                
                     />
                   </label>
@@ -511,34 +502,32 @@ export default function Home() {
                   </div>
                 ))}
 
-                <div className="mt-2 flex items-center gap-2">
+                <div className="mt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                   <input 
                     type="text" 
                     placeholder="Escribe un comentario..."
                     value={commentTexts[person.id] || ""}
                     onChange={(e) => setCommentTexts({ ...commentTexts, [person.id]: e.target.value })}
-                    className="flex-1 border rounded-lg px-3 py-1 text-sm"
+                    className="flex-1 border rounded-lg px-3 py-1 text-sm w-full"
                   />
                   <button 
                     onClick={() => {
                       handleComment(person.id, commentTexts[person.id] || "");
                       setCommentTexts({ ...commentTexts, [person.id]: "" });
                     }}
-                    className="bg-blue-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-blue-600"
+                    className="bg-blue-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-600 w-full sm:w-auto"
                   >
                     Comentar
                   </button>
                 </div>
               </div>
 
-              {/* <div className="mt-4"> */}
-                <Link
-                  href={`/profile/${person.username}`}
-                  className="mt-4 block bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 text-center text-sm sm:text-base"
-                >
-                  Ver perfil
-                </Link>
-              {/* </div> */}
+              <Link
+                href={`/profile/${person.username}`}
+                className="mt-4 block bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 text-center text-sm sm:text-base"
+              >
+                Ver perfil
+              </Link>
             </motion.div>
           
         ))}
