@@ -3,7 +3,7 @@ import { skills as initialSkills } from "@/data/skills";
 import Link from "next/link";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import { X, Heart, ThumbsUp } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Post } from "@/types/post"
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale"
@@ -49,11 +49,18 @@ export default function Home() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  // const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
+  const editorRef = useRef<HTMLDivElement | null>(null);
+  const savedRangeRef = useRef<Range | null>(null);
+  const [editorFocused, setEditorFocused] = useState(false);
 
   const handleInput: React.FormEventHandler<HTMLDivElement> = (e) => {
     const text = e.currentTarget.textContent ?? "";
     setNewPostText(text);
+
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      savedRangeRef.current = sel.getRangeAt(0).cloneRange();
+    }
 
     const words = text.split(/\s+/);
     const lastWord = words[words.length - 1] ?? "";
@@ -201,26 +208,10 @@ export default function Home() {
     selection.removeAllRanges();
     selection.addRange(range);
 
+    savedRangeRef.current = range.cloneRange();
     setNewPostText(editor.innerText);
     setShowSuggestions(false)
   }
-
-  // const handleFocus = () => {
-  //   const editor = document.getElementById("new-post-editor");
-  //   if (!editor) return;
-    
-  //   if (editor.textContent?.trim() === "") {
-  //     const selection = window.getSelection();
-  //     if (!selection) return;
-
-  //     const range = document.createRange();
-  //     range.setStart(editor, 0);
-  //     range.collapse(true);
-  //     selection.removeAllRanges();
-  //     selection.addRange(range);
-  //   }
-  // };
-
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -233,8 +224,52 @@ export default function Home() {
   };
 
   const onEmojiClick = (emojiObject: EmojiClickData) => {
-    setNewPostText((prev) => prev + emojiObject.emoji);
+    const editor = editorRef.current;
+    if (!editor) return;
+    
+    const sel = window.getSelection();
+    
+    if (savedRangeRef.current && sel) {
+      sel.removeAllRanges();
+      sel.addRange(savedRangeRef.current);
+    } else {
+      const range = document.createRange();
+      range.selectNodeContents(editor);
+      range.collapse(false);
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+
+    }
+    
+    const currentRange = window.getSelection()!.getRangeAt(0);
+    currentRange.deleteContents();
+    const textNode = document.createTextNode(emojiObject.emoji);
+    currentRange.insertNode(textNode);
+    currentRange.setStartAfter(textNode);
+    currentRange.setEndAfter(textNode)
+    currentRange.collapse(true);
+    sel!.removeAllRanges();
+    sel!.addRange(currentRange);
+
+    savedRangeRef.current = currentRange;
+    setNewPostText(editor.innerText);
   };
+
+  const handleToggleEmojiPicker = () => {
+    const editor = editorRef.current;
+    if (editor) {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) {
+        const range = document.createRange();
+        range.selectNodeContents(editor);
+        range.collapse(false);
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+        savedRangeRef.current = range.cloneRange();
+      }
+    }
+    setShowEmojiPicker(prev => !prev);
+  }
 
   return (
     <main className="px-4 sm:px-6 lg:px-12 py-8 flex flex-col items-center gap-6">
@@ -250,6 +285,12 @@ export default function Home() {
       <AnimatePresence>
         <motion.div 
           key="newPostInput"
+          // onFocus={() => setEditorFocused(true)}
+          // onBlur={(e) => {
+          //   if (!newPostText.trim() && !newPostImage) {
+          //     setEditorFocused(false);
+          //   }
+          // }}
           variants={newPostVariant}
           initial="hidden"
           animate="visible"
@@ -263,16 +304,26 @@ export default function Home() {
               </span>
             )}
             <div
-              id="new-post-editor" 
+              id="new-post-editor"
+              ref={editorRef} 
               contentEditable
               suppressContentEditableWarning
               onInput={handleInput}
-              // onFocus={handleFocus}
+              onFocus={() => {
+                setEditorFocused(true);
+                const sel = window.getSelection();
+                if (sel && sel.rangeCount > 0) savedRangeRef.current = sel.getRangeAt(0).cloneRange();
+              }}
+              onBlur={() => {
+                if (!newPostText.trim() && !newPostImage) {
+                  setEditorFocused(false);
+                  setShowEmojiPicker(false);
+                }
+              }}
               data-placeholder="Qué estás haciendo??"
               className="flex-1 outline-none"
             />
           </div>
-
 
           {showSuggestions && suggestions.length > 0 && (
             <div className="bg-white border rounded-lg shadow-md mt-1 p-2 w-60 max-h-40 overflow-y-auto">
@@ -306,24 +357,36 @@ export default function Home() {
           )}
 
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowEmojiPicker((prev) => !prev)}
-                className="text-xl hover:bg-gray-100 p-2 rounded-full transition"
-              >
-                😊
-              </button>
+            <AnimatePresence>
+              {editorFocused && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className="flex items-center gap-3"
+                >
+                  <button
+                    // onMouseDown={(e) => e.preventDefault()}
+                    // onClick={() => setShowEmojiPicker((prev) => !prev)}
+                    onClick={handleToggleEmojiPicker}
+                    className="text-xl hover:bg-gray-100 p-2 rounded-full transition"
+                  >
+                    😊
+                  </button>
 
-              <label className="cursor-pointer hover:bg-gray-100 p-2 rounded-full transition">
-                📷
-                <input 
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleImageUpload}                
-                />
-              </label>
-            </div>
+                  <label className="cursor-pointer hover:bg-gray-100 p-2 rounded-full transition">
+                    📷
+                    <input 
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      // onMouseDown={(e) => e.preventDefault()}
+                      onChange={handleImageUpload}                
+                    />
+                  </label>
+                </motion.div>
+              )}
+            </AnimatePresence>
             <button
               onClick={handleAddPost}
               className="bg-blue-500 text-white px-4 py-2 rounded-xl hover:bg-blue-600 transition"
