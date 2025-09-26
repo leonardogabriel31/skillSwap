@@ -226,7 +226,7 @@ export default function Home() {
         setShowSuggestions(true);
       }
     } else {
-      setShowSuggestions
+      setShowSuggestions(false)
     }
   };
 
