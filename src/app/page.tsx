@@ -52,39 +52,32 @@ export default function Home() {
   const editorRef = useRef<HTMLDivElement | null>(null);
   const savedRangeRef = useRef<Range | null>(null);
   const [editorFocused, setEditorFocused] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState<number>(0);
+  const [expandedComments, setExpandedComments] = useState<Record<number, boolean>>({});
 
-  const handleInput: React.FormEventHandler<HTMLDivElement> = (e) => {
-    const text = e.currentTarget.textContent ?? "";
-    setNewPostText(text);
+  const toggleComments = (id: number) => {
+    setExpandedComments(prev => ({ ...prev, [id]: !prev[id] }));
+  };
 
-    const sel = window.getSelection();
-    if (sel && sel.rangeCount > 0) {
-      savedRangeRef.current = sel.getRangeAt(0).cloneRange();
-    }
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!showSuggestions) return;
 
-    const words = text.split(/\s+/);
-    const lastWord = words[words.length - 1] ?? "";
-
-    if (lastWord.startsWith("@")) {
-      const query = lastWord.slice(1).toLowerCase();
-      const matchedUsers = initialSkills
-        .map((u) => u.username)
-        .filter((u) => u.toLowerCase().startsWith(query));
-      setSuggestions(matchedUsers);
-      setShowSuggestions(true);
-    } else if (lastWord.startsWith("#")) {
-      const query = lastWord.slice(1).toLowerCase();
-      const hashtags = ["frontend", "backend", "fullstack", "nextjs", "dev"];
-      const matchedTags = hashtags.filter((tag) => tag.startsWith(query));
-      setSuggestions(matchedTags.map((t) => `#${t}`));
-      setShowSuggestions(true);
-    } else {
-      setShowSuggestions(false);
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (prev + 1) % suggestions.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedIndex((prev) =>
+        prev === 0 ? suggestions.length - 1 : prev - 1
+      );
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      handleSuggestionClick(suggestions[highlightedIndex]);
     }
   };
 
   const handleAddPost = () => {
-    if (!newPostText.trim()) return;
+    if (!newPostText.trim() && !newPostImage) return;
 
     const newPost = {
       id: posts.length + 1,
@@ -177,41 +170,65 @@ export default function Home() {
   };
 
   const handleSuggestionClick = (suggestion: string) => {
-    const editor = document.getElementById("new-post-editor");
-    if (!editor) return;
+    const textarea = document.querySelector("textarea") as HTMLTextAreaElement;
+    if (!textarea) return;
     
-    const selection = window.getSelection();
-    if (!selection || !selection.rangeCount) return;
-    
-    const range = selection.getRangeAt(0);
-    
-    const textNode = range.startContainer;
-    if (textNode.nodeType === Node.TEXT_NODE) {
-      const text = textNode.textContent || "";
-      const before = text.slice(0, range.startOffset).replace(/[@#]\w*$/, "");
-      const after = text.slice(range.startOffset);
-      textNode.textContent = before + after;
-      range.setStart(textNode, before.length);
-      range.setEnd(textNode, before.length);
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const textBeforeCursor = newPostText.slice(0, start);
+    const textAfterCursor = newPostText.slice(end);
 
+    const match = textBeforeCursor.match(/([@#])\w*$/);
+    if (!match) return;
+
+    const prefix = match[1];
+    const cleanSuggestion =
+      prefix === "@"
+        ? `@${suggestion.replace(/^@/, "")}`
+        : `#${suggestion.replace(/^#/, "")}`;
+
+    const newText = textBeforeCursor.replace(/[@#]\w*$/, cleanSuggestion) + textAfterCursor;
+    setNewPostText(newText);
+
+    setTimeout(() => {
+      const cursorPos = textBeforeCursor.replace(/[@#]\w*$/, cleanSuggestion).length;
+      textarea.selectionStart = textarea.selectionEnd = cursorPos;
+      textarea.focus();
+    }, 0)
+    setShowSuggestions(false);
+  };
+
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setNewPostText(value);
+
+    const cursorPos = e.target.selectionStart;
+    const textUpCursor = value.slice(0, cursorPos);
+    const match = textUpCursor.match(/[@#][\w]*$/);
+
+
+    if (match) {
+      const lastWord = match[0];
+      if (lastWord.startsWith("@")) {
+        const query = lastWord.slice(1).toLowerCase();
+        const matchedUsers = initialSkills
+          .map((u) => u.username)
+          .filter((u) => u.toLowerCase().startsWith(query));
+        setSuggestions(matchedUsers);
+        setShowSuggestions(true);
+      } else if (lastWord.startsWith("#")) {
+        const query = lastWord.slice(1).toLowerCase();
+        const hashtags = ["frontend", "backend", "fullstack", "nextjs", "dev", "Angular", "Phyton"];
+        const matchedTags = hashtags.filter((tag) => 
+          tag.startsWith(query)
+        );
+        setSuggestions(matchedTags.map((t) => `#${t}`));
+        setShowSuggestions(true);
+      }
+    } else {
+      setShowSuggestions
     }
-    const span = document.createElement("span");
-    span.textContent = suggestion.startsWith("#") ? `${suggestion}` : `@${suggestion}`;
-    span.className = suggestion.startsWith("#")
-    ? "text-purple-500 font-medium"
-    : "text-blue-500 font-medium"
-    
-    range.insertNode(span);
-  
-    range.setStartAfter(span);
-    range.setEndAfter(span);
-    selection.removeAllRanges();
-    selection.addRange(range);
-
-    savedRangeRef.current = range.cloneRange();
-    setNewPostText(editor.innerText);
-    setShowSuggestions(false)
-  }
+  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -219,40 +236,9 @@ export default function Home() {
     const reader = new FileReader();
     reader.onloadend = () => {
       setNewPostImage(reader.result as string);
+      setEditorFocused(true);
     };
     reader.readAsDataURL(file);
-  };
-
-  const onEmojiClick = (emojiObject: EmojiClickData) => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    
-    const sel = window.getSelection();
-    
-    if (savedRangeRef.current && sel) {
-      sel.removeAllRanges();
-      sel.addRange(savedRangeRef.current);
-    } else {
-      const range = document.createRange();
-      range.selectNodeContents(editor);
-      range.collapse(false);
-      sel?.removeAllRanges();
-      sel?.addRange(range);
-
-    }
-    
-    const currentRange = window.getSelection()!.getRangeAt(0);
-    currentRange.deleteContents();
-    const textNode = document.createTextNode(emojiObject.emoji);
-    currentRange.insertNode(textNode);
-    currentRange.setStartAfter(textNode);
-    currentRange.setEndAfter(textNode)
-    currentRange.collapse(true);
-    sel!.removeAllRanges();
-    sel!.addRange(currentRange);
-
-    savedRangeRef.current = currentRange;
-    setNewPostText(editor.innerText);
   };
 
   const handleToggleEmojiPicker = () => {
@@ -270,6 +256,55 @@ export default function Home() {
     }
     setShowEmojiPicker(prev => !prev);
   }
+
+  const HandleEmojiInsert = (emoji: string) => {
+    const textarea = document.querySelector("textarea") as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+
+    const newText = 
+    newPostText.slice(0, start) + emoji + newPostText.slice(end);
+
+    setNewPostText(newText);
+
+    setTimeout(() => {
+      textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
+      textarea.focus();
+    }, 0);
+  };
+
+  const renderHighlightedText = (text: string) => {
+    const parts = text.split(/([@#]\w+)/g);
+    
+    return parts.map((part, idx) => {
+      if (part.startsWith("@")) {
+        const username = part.slice(1);
+        return (
+          <Link 
+            key={idx}
+            href={`/profile/${username}`}
+            className="text-blue-500 font-medium hover:underline"
+          >
+            {part}
+          </Link>
+        )
+      } else if (part.startsWith("#")) {
+        const tag = part.slice(1);
+        return (  
+          <Link 
+            key={idx}
+            href={`/hashtag/${tag}`}
+            className="text-purple-500 font-medium hover:underline"
+          >
+            {part}
+          </Link>
+        )
+      }
+      return <span key={idx}>{part}</span>;
+    });
+  };
 
   return (
     <main className="px-4 sm:px-6 lg:px-12 py-8 flex flex-col items-center gap-6">
@@ -289,52 +324,55 @@ export default function Home() {
           initial="hidden"
           animate="visible"
           exit="exit"
-          className="bg-white shadow-md rounded-2xl p-4 w-full max-w-3xl flex flex-col gap-3"
+          className="bg-white border border-gray-200/60 shadow-sm hover:shadow-lg rounded-3xl p-4 w-full max-w-3xl flex flex-col gap-3 transition-shadow duration-300"
         >
-          <div className="relative border rounded-lg py-2 px-4 w-full text-sm min-h-[80px] outline-none whitespace-pre-wrap flex items-start">
-            {newPostText === "" && (
-              <span className="text-gray-400 pointer-events-none select-none">
-                Qué estás haciendo??
-              </span>
-            )}
+          <div className="relative w-full">
             <div
-              id="new-post-editor"
-              ref={editorRef} 
-              contentEditable
-              suppressContentEditableWarning
-              onInput={handleInput}
-              onFocus={() => {
-                setEditorFocused(true);
-                const sel = window.getSelection();
-                if (sel && sel.rangeCount > 0) savedRangeRef.current = sel.getRangeAt(0).cloneRange();
-              }}
+              className="absolute inset-0 p-3 text-sm whitespace-pre-wrap break-words rounded-2xl pointer-events-none text-gray-900"
+            >
+              {renderHighlightedText(newPostText)}
+            </div>
+
+            <textarea 
+              value={newPostText}
+              onKeyDown={handleKeyDown}
+              onChange={handleTextareaChange}
+              placeholder="Qué estás haciendo??"
+              onFocus={() => setEditorFocused(true)}
               onBlur={() => {
-                if (!newPostText.trim() && !newPostImage) {
+                if (!newPostText.trim() && !newPostImage && !showEmojiPicker) {
                   setEditorFocused(false);
                   setShowEmojiPicker(false);
                 }
               }}
-              data-placeholder="Qué estás haciendo??"
-              className="flex-1 outline-none"
+              className="relative w-full border rounded-2xl p-3 text-sm min-h-[80px] outline-none resize-none bg-transparent text-transparent caret-black z-10"
             />
           </div>
 
           {showSuggestions && suggestions.length > 0 && (
-            <div className="bg-white border rounded-lg shadow-md mt-1 p-2 w-60 max-h-40 overflow-y-auto">
+            <div className="bg-white border border-gray-200 shadow-md mt-1 p-2 w-60 max-h-40 overflow-y-auto rounded-lg">
               {suggestions.map((s, idx) => (
                 <div
                   key={idx}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    handleSuggestionClick(s)
-                  }}
-                  className="px-2 py-1 cursor-pointer hover:bg-gray-100 rounded-md"
+                  onClick={() => handleSuggestionClick(s)}
+                  className={`px-2 py-1 cursor-pointer rounded-md ${
+                    highlightedIndex === idx
+                    ? "bg-gray-100"
+                    : "hover:bg-gray-50"
+                  }`}
                 >
-                  {s.startsWith("#") ? (
-                    <span className="text-purple-500">{s}</span>
-                  ):(
-                    <span className="text-blue-500">@{s}</span>
-                  )}
+                  <motion.span
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.15 }} 
+                    className={`px-1.5 py-0.5 rounded-md font-medium ${
+                      s.startsWith("#")
+                        ? "bg-purple-100 text-purple-600"
+                        : "bg-blue-100 text-blue-600"
+                    }`}
+                  >
+                    {s}
+                  </motion.span>
                 </div>
               ))}
             </div>
@@ -351,33 +389,41 @@ export default function Home() {
           )}
 
           <div className="flex items-center justify-between">
-            <AnimatePresence>
-              {editorFocused && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  className="flex items-center gap-3"
-                >
-                  <button
-                    onClick={handleToggleEmojiPicker}
-                    className="text-xl hover:bg-gray-100 p-2 rounded-full transition"
-                  >
-                    😊
-                  </button>
+            <div className="flex items-center gap-3">
+              <AnimatePresence>
 
-                  <label className="cursor-pointer hover:bg-gray-100 p-2 rounded-full transition">
-                    📷
-                    <input 
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleImageUpload}                
-                    />
-                  </label>
-                </motion.div>
-              )}
-            </AnimatePresence>
+              {editorFocused && (
+                <motion.button
+                  key="emoji.button"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.2 }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handleToggleEmojiPicker();
+                  }}
+                  className="text-xl hover:bg-gray-100 p-2 rounded-full transition"
+                  type="button"
+                >
+                  😊
+                </motion.button>
+                )}
+              </AnimatePresence>
+
+              <label className="cursor-pointer hover:bg-gray-100 p-2 rounded-full transition">
+                📷
+                <input 
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    handleImageUpload(e);
+                    setEditorFocused(true)
+                  }}                
+                />
+              </label>
+            </div>
             <button
               onClick={handleAddPost}
               className="bg-blue-500 text-white px-4 py-2 rounded-xl hover:bg-blue-600 transition"
@@ -394,7 +440,11 @@ export default function Home() {
                 exit={{ opacity: 0, scale: 0.8 }}
                 className="mt-2"
               >
-                <EmojiPicker onEmojiClick={onEmojiClick} />
+                <EmojiPicker 
+                  onEmojiClick={(emoji: EmojiClickData) => 
+                    HandleEmojiInsert(emoji.emoji)
+                  }
+                />
               </motion.div>
             )}
           </AnimatePresence>
@@ -449,7 +499,8 @@ export default function Home() {
               </div>
 
               <p className="text-gray-700 text-sm sm:text-base mb-4">
-                {person.content.split(" ").map((word, idx) => {
+                {renderHighlightedText(person.content)}
+                {/* {person.content.split(" ").map((word, idx) => {
                   if (word.startsWith("@")) {
                     return (
                       <span key={idx} className="text-blue-500 font-medium cursor-pointer">
@@ -459,13 +510,13 @@ export default function Home() {
                   }
                   if (word.startsWith("#")) {
                     return (
-                      <span key={idx} className="text-blue-500 font-medium cursor-pointer">
+                      <span key={idx} className="text-purple-500 font-medium cursor-pointer">
                         {word}{" "}
                       </span>
                     );
                   }
                   return word + " "
-                })}
+                })} */}
               </p>
 
               <div className="flex items-center gap-6 mt-2">
@@ -495,30 +546,57 @@ export default function Home() {
               </div>
 
               <div className="mt-4">
-                {person.comments.map((comment) => (
-                  <div key={comment.id} className="text-sm text-gray-700 mb-2">
-                    <span className="font-semibold">{comment.author}: </span>
-                    {comment.text}
-                  </div>
-                ))}
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-500">
+                    {person.comments.length} comentario{person.comments.length !== 1 ? "s" : ""}
+                  </span>
 
-                <div className="mt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                  <input 
-                    type="text" 
-                    placeholder="Escribe un comentario..."
-                    value={commentTexts[person.id] || ""}
-                    onChange={(e) => setCommentTexts({ ...commentTexts, [person.id]: e.target.value })}
-                    className="flex-1 border rounded-lg px-3 py-1 text-sm w-full"
-                  />
-                  <button 
-                    onClick={() => {
-                      handleComment(person.id, commentTexts[person.id] || "");
-                      setCommentTexts({ ...commentTexts, [person.id]: "" });
-                    }}
-                    className="bg-blue-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-600 w-full sm:w-auto"
-                  >
-                    Comentar
-                  </button>
+                  {person.comments.length > 2 && (
+                    <button
+                      onClick={() => toggleComments(person.id)}
+                      className="text-xs text-gray-600 hover:underline"
+                      aria-expanded={!!expandedComments[person.id]}
+                      aria-controls={`comments-${person.id}`}
+                    >
+                      {expandedComments[person.id] ? "Mostrar menos" : `Ver ${person.comments.length - 2} más`}
+                    </button>
+                  )}
+                </div>
+
+                <AnimatePresence initial={false}>
+                  {(expandedComments[person.id] ? person.comments : person.comments.slice(0, 2)).map((comment) => (
+                    <motion.div 
+                      key={comment.id}
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -5 }}
+                      transition={{ duration: 0.2 }}
+                      className="text-sm text-gray-700 mb-2">
+                      <span className="font-semibold mr-1">{comment.author}:</span>
+                      <span>{comment.text}</span>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+
+                <div className="mt-2">
+                  <div className="mt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <input 
+                      type="text" 
+                      placeholder="Escribe un comentario..."
+                      value={commentTexts[person.id] || ""}
+                      onChange={(e) => setCommentTexts({ ...commentTexts, [person.id]: e.target.value })}
+                      className="flex-1 border rounded-lg px-3 py-1 text-sm w-full"
+                    />
+                    <button 
+                      onClick={() => {
+                        handleComment(person.id, commentTexts[person.id] || "");
+                        setCommentTexts({ ...commentTexts, [person.id]: "" });
+                      }}
+                      className="bg-blue-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-600 w-full sm:w-auto"
+                    >
+                      Comentar
+                    </button>
+                  </div>
                 </div>
               </div>
 

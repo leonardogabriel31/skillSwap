@@ -3,6 +3,27 @@ import type { Post } from "@/types/post"
 export const skills: Post[] = [
     {
         id: 1,
+        name: "José P.",
+        skill: "Desarrollo Fullstack",
+        skills: [ "Angular", "Phyton" ],
+        description:"Desarrollo en Angular y Tailwind.",
+        image: "/images/default.jpg",
+        username: "jose",
+        offers: ["Mentoría en frontend y backend", "Revisión de código", "Analisis de datos"],
+        wants: ["Mejorar en DevOps", "Incursionar en el analisis de datos"],
+        content: "Acabo de revisar un proyecto en Angular bastante interesante 💡👨🏾‍💻. Gracias a @maria por las ideas de diseño y también quiero compartir algunas técnicas de #SEO que aprendí",
+        reactions: { likes: 1, hearts: 3 },
+        comments: [
+            { id: 1, author: "Leonardo M.", text: "Hablame acerca del proyecto, he buscado indagar mas acerca de Angular"},
+            { id: 2, author: "Carlos P.", text: "Excelente 🔥🔥🔥"},
+            { id: 2, author: "Maria G.", text: "Gracias a ti por la confianza brindada. Si necesitas más apoyo con la experiencia de usuario no dudes en contactarme 🫱🏽‍🫲🏾🫱🏽‍🫲🏾"},
+        ],
+        userReaction: null,
+        createAt: "2025-09-26T18:30:00.000Z",
+        imagePost: null,
+    },
+    {
+        id: 2,
         name: "Leonardo M.",
         skill: "Desarrollo Frontend",
         skills: [ "React", "Next.js", "CSS" ],
@@ -22,7 +43,7 @@ export const skills: Post[] = [
         imagePost: "/images/Image-prueba.png",
     },
     {
-        id: 2,
+        id: 3,
         name: "Maria G.",
         skill: "Diseño UX/UI",
         skills: [ "Diseño UX/UI" ],
@@ -41,7 +62,7 @@ export const skills: Post[] = [
         imagePost: null,
     },
     {
-        id: 3,
+        id: 4,
         name: "Carlos P.",
         skill: "Marketing Digital",
         skills: ["SEO", "SEM", "Redes Sociales"],
