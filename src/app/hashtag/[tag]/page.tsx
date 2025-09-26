@@ -3,6 +3,7 @@ import React from 'react'
 import { useParams } from 'next/navigation';
 import { skills } from '@/data/skills';
 import Link from 'next/link';
+import Image from 'next/image';
 
 
 export default function HashtagPage() {
@@ -40,10 +41,12 @@ export default function HashtagPage() {
                             <p className='text-gray-700 mb-2'>{post.content}</p>
 
                             {post.imagePost && (
-                                <img 
+                                <Image 
                                     src={post.imagePost} 
                                     alt="post image"
-                                    className='rounded-lg mt-2 max-h-60 object-cover' 
+                                    className='rounded-lg mt-2 max-h-60 object-cover'
+                                    width={30}
+                                    height={30}
                                 />
                             )}
 
