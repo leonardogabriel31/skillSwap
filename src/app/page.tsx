@@ -3,12 +3,15 @@ import { skills as initialSkills } from "@/data/skills";
 import Link from "next/link";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import { X, Heart, ThumbsUp } from "lucide-react";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Post } from "@/types/post"
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale"
-import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
+import Picker from "@emoji-mart/react";
+import emojiData from "@emoji-mart/data";
+import Editor from "@/plugins/textarea/Editor";
 import Image from "next/image";
+import { EmojiMartEmoji } from "@/types/emojiMartEmoji";
 
 
 const cardVariants: Variants = {
@@ -49,11 +52,44 @@ export default function Home() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const editorRef = useRef<HTMLDivElement | null>(null);
-  const savedRangeRef = useRef<Range | null>(null);
   const [editorFocused, setEditorFocused] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState<number>(0);
   const [expandedComments, setExpandedComments] = useState<Record<number, boolean>>({});
+  const [clearTrigger, setClearTrigger] = useState(false);
+  const [insertEmojiFunc, setInsertEmojiFunc] = useState<((emoji: string) => void) | null>(null);
+  const editorRef = useRef<HTMLDivElement | null>(null);
+  const savedRangeRef = useRef<Range | null>(null);
+  const editorWrapperRef = useRef<HTMLDivElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement | null>(null);
+  const insertEmojiRef = useRef<(emoji: string) => void>();
+
+  useEffect(() => {
+    insertEmojiRef.current = insertEmojiFunc ?? undefined;
+  }, [insertEmojiFunc])
+
+  const HandleInsertEmoji = (emoji: string) => {
+    if (insertEmojiRef.current) {
+      insertEmojiRef.current(emoji);
+    }
+  };
+
+  const handleClickOutside = (event: MouseEvent) => {
+    if (
+      emojiPickerRef.current &&
+      !emojiPickerRef.current.contains(event.target as Node) &&
+      editorWrapperRef.current &&
+      !editorWrapperRef.current.contains(event.target as Node)
+    ) {
+      setShowEmojiPicker(false);
+    }
+  };
+
+  useEffect(() => {
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const toggleComments = (id: number) => {
     setExpandedComments(prev => ({ ...prev, [id]: !prev[id] }));
@@ -101,9 +137,9 @@ export default function Home() {
     setNewPostText("");
     setNewPostImage(null);
     setShowEmojiPicker(false);
+    setClearTrigger(true);
 
-    const editableDiv = document.getElementById("new-post-editor");
-    if (editableDiv) editableDiv.textContent = "";
+    setTimeout(() => setClearTrigger(false), 0);
   }
 
   const handleReaction = (id: number, type: "likes" | "hearts") => {
@@ -198,38 +234,6 @@ export default function Home() {
     setShowSuggestions(false);
   };
 
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    setNewPostText(value);
-
-    const cursorPos = e.target.selectionStart;
-    const textUpCursor = value.slice(0, cursorPos);
-    const match = textUpCursor.match(/[@#][\w]*$/);
-
-
-    if (match) {
-      const lastWord = match[0];
-      if (lastWord.startsWith("@")) {
-        const query = lastWord.slice(1).toLowerCase();
-        const matchedUsers = initialSkills
-          .map((u) => u.username)
-          .filter((u) => u.toLowerCase().startsWith(query));
-        setSuggestions(matchedUsers);
-        setShowSuggestions(true);
-      } else if (lastWord.startsWith("#")) {
-        const query = lastWord.slice(1).toLowerCase();
-        const hashtags = ["frontend", "backend", "fullstack", "nextjs", "dev", "Angular", "Phyton"];
-        const matchedTags = hashtags.filter((tag) => 
-          tag.startsWith(query)
-        );
-        setSuggestions(matchedTags.map((t) => `#${t}`));
-        setShowSuggestions(true);
-      }
-    } else {
-      setShowSuggestions(false)
-    }
-  };
-
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
@@ -239,40 +243,6 @@ export default function Home() {
       setEditorFocused(true);
     };
     reader.readAsDataURL(file);
-  };
-
-  const handleToggleEmojiPicker = () => {
-    const editor = editorRef.current;
-    if (editor) {
-      const sel = window.getSelection();
-      if (!sel || sel.rangeCount === 0) {
-        const range = document.createRange();
-        range.selectNodeContents(editor);
-        range.collapse(false);
-        sel?.removeAllRanges();
-        sel?.addRange(range);
-        savedRangeRef.current = range.cloneRange();
-      }
-    }
-    setShowEmojiPicker(prev => !prev);
-  }
-
-  const HandleEmojiInsert = (emoji: string) => {
-    const textarea = document.querySelector("textarea") as HTMLTextAreaElement;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-
-    const newText = 
-    newPostText.slice(0, start) + emoji + newPostText.slice(end);
-
-    setNewPostText(newText);
-
-    setTimeout(() => {
-      textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
-      textarea.focus();
-    }, 0);
   };
 
   const renderHighlightedText = (text: string) => {
@@ -306,6 +276,10 @@ export default function Home() {
     });
   };
 
+  const handleInsertEmojiFunc = useCallback((insertFn: (emoji: string) => void) => {
+    setInsertEmojiFunc(() => insertFn);
+  }, [])
+
   return (
     <main className="px-4 sm:px-6 lg:px-12 py-8 flex flex-col items-center gap-6">
       <motion.h1 
@@ -325,29 +299,14 @@ export default function Home() {
           animate="visible"
           exit="exit"
           className="bg-white border border-gray-200/60 shadow-sm hover:shadow-lg rounded-3xl p-4 w-full max-w-3xl flex flex-col gap-3 transition-shadow duration-300"
+          ref={editorWrapperRef}
         >
-          <div className="relative w-full">
-            <div
-              className="absolute inset-0 p-3 text-sm whitespace-pre-wrap break-words rounded-2xl pointer-events-none text-gray-900"
-            >
-              {renderHighlightedText(newPostText)}
-            </div>
-
-            <textarea 
-              value={newPostText}
-              onKeyDown={handleKeyDown}
-              onChange={handleTextareaChange}
-              placeholder="Qué estás haciendo??"
-              onFocus={() => setEditorFocused(true)}
-              onBlur={() => {
-                if (!newPostText.trim() && !newPostImage && !showEmojiPicker) {
-                  setEditorFocused(false);
-                  setShowEmojiPicker(false);
-                }
-              }}
-              className="relative w-full border rounded-2xl p-3 text-sm min-h-[80px] outline-none resize-none bg-transparent text-transparent caret-black z-10"
-            />
-          </div>
+          <Editor 
+            onChange={(val) => setNewPostText(val)} 
+            clearTrigger={clearTrigger} 
+            onInsertEmoji={handleInsertEmojiFunc}
+            onFocusChange={(focused) => setEditorFocused(focused)}
+          />
 
           {showSuggestions && suggestions.length > 0 && (
             <div className="bg-white border border-gray-200 shadow-md mt-1 p-2 w-60 max-h-40 overflow-y-auto rounded-lg">
@@ -391,23 +350,22 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <AnimatePresence>
-
-              {editorFocused && (
-                <motion.button
-                  key="emoji.button"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ duration: 0.2 }}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    handleToggleEmojiPicker();
-                  }}
-                  className="text-xl hover:bg-gray-100 p-2 rounded-full transition"
-                  type="button"
-                >
-                  😊
-                </motion.button>
+                {editorFocused && (
+                  <motion.button
+                    key="emoji.button"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ duration: 0.2 }}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setShowEmojiPicker((prev) => !prev);
+                    }}
+                    className="text-xl hover:bg-gray-100 p-2 rounded-full transition"
+                    type="button"
+                  >
+                    😊
+                  </motion.button>
                 )}
               </AnimatePresence>
 
@@ -435,15 +393,27 @@ export default function Home() {
           <AnimatePresence>
             {showEmojiPicker && (
               <motion.div
+                ref={emojiPickerRef}
+                tabIndex={-1}
+                onMouseDown={(e) => {
+                  if ((e.target as HTMLElement).closest(".emoji-picker-wrapper")) {
+                    e.stopPropagation();
+                  }
+                }}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
-                className="mt-2"
+                className="emoji-picker-wrapper mt-2 z-50"
               >
-                <EmojiPicker 
-                  onEmojiClick={(emoji: EmojiClickData) => 
-                    HandleEmojiInsert(emoji.emoji)
-                  }
+                <Picker 
+                  data={emojiData}
+                  onEmojiSelect={(emojiObj: EmojiMartEmoji) => {
+                    const emoji = emojiObj.native || "";
+                    console.log("Emoji seleccionado:", emoji);
+                    HandleInsertEmoji(emoji);
+                  }}
+                  autoFocus={false}
+                  theme="dark"
                 />
               </motion.div>
             )}
@@ -500,23 +470,6 @@ export default function Home() {
 
               <p className="text-gray-700 text-sm sm:text-base mb-4">
                 {renderHighlightedText(person.content)}
-                {/* {person.content.split(" ").map((word, idx) => {
-                  if (word.startsWith("@")) {
-                    return (
-                      <span key={idx} className="text-blue-500 font-medium cursor-pointer">
-                        {word}{" "}
-                      </span>
-                    )
-                  }
-                  if (word.startsWith("#")) {
-                    return (
-                      <span key={idx} className="text-purple-500 font-medium cursor-pointer">
-                        {word}{" "}
-                      </span>
-                    );
-                  }
-                  return word + " "
-                })} */}
               </p>
 
               <div className="flex items-center gap-6 mt-2">
@@ -611,7 +564,7 @@ export default function Home() {
         ))}
       </div>
 
-      <AnimatePresence>
+      {/* <AnimatePresence>
         {showModal && (
           <motion.div
             className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
@@ -642,7 +595,7 @@ export default function Home() {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence> */}
     </main>
   );
 }
