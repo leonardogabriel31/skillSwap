@@ -57,8 +57,6 @@ export default function Home() {
   const [expandedComments, setExpandedComments] = useState<Record<number, boolean>>({});
   const [clearTrigger, setClearTrigger] = useState(false);
   const [insertEmojiFunc, setInsertEmojiFunc] = useState<((emoji: string) => void) | null>(null);
-  const editorRef = useRef<HTMLDivElement | null>(null);
-  const savedRangeRef = useRef<Range | null>(null);
   const editorWrapperRef = useRef<HTMLDivElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement | null>(null);
   const insertEmojiRef = useRef<(emoji: string) => void>();
@@ -93,23 +91,6 @@ export default function Home() {
 
   const toggleComments = (id: number) => {
     setExpandedComments(prev => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (!showSuggestions) return;
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setHighlightedIndex((prev) => (prev + 1) % suggestions.length);
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setHighlightedIndex((prev) =>
-        prev === 0 ? suggestions.length - 1 : prev - 1
-      );
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      handleSuggestionClick(suggestions[highlightedIndex]);
-    }
   };
 
   const handleAddPost = () => {
