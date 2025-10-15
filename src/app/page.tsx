@@ -50,9 +50,11 @@ export default function Home() {
   const [newPostText, setNewPostText] = useState("");
   const [newPostImage, setNewPostImage] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [editorFocused, setEditorFocused] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [highlightedIndex, setHighlightedIndex] = useState<number>(0);
   const [expandedComments, setExpandedComments] = useState<Record<number, boolean>>({});
   const [clearTrigger, setClearTrigger] = useState(false);
