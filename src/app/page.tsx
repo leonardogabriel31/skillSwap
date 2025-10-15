@@ -564,7 +564,7 @@ export default function Home() {
         ))}
       </div>
 
-      {/* <AnimatePresence>
+      <AnimatePresence>
         {showModal && (
           <motion.div
             className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
@@ -595,7 +595,7 @@ export default function Home() {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence> */}
+      </AnimatePresence>
     </main>
   );
 }

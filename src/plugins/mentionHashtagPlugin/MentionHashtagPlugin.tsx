@@ -1,6 +1,6 @@
 "use client"
 import { LexicalTypeaheadMenuPlugin, MenuOption } from "@lexical/react/LexicalTypeaheadMenuPlugin";
-import { TextNode, $insertNodes, LexicalEditor } from "lexical";
+// import { TextNode, $insertNodes, LexicalEditor } from "lexical";
 import * as React from "react";
 import { useState, useCallback } from "react";
 import { $createMentionNode } from "../../nodes/mentionNode/MentionNode";

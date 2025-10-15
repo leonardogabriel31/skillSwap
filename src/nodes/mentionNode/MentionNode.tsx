@@ -1,4 +1,4 @@
-import { EditorConfig, LexicalEditor, SerializedTextNode, TextNode } from "lexical";
+import { TextNode } from "lexical";
 
 export class MentionNode extends TextNode {
     static getType(): string {

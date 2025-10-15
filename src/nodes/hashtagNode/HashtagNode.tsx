@@ -1,4 +1,4 @@
-import { DOMConversionMap, EditorConfig, LexicalEditor, SerializedTextNode, TextNode } from "lexical";
+import { TextNode } from "lexical";
 
 export class HashtagNode extends TextNode {
     static getType(): string {
